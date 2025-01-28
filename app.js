@@ -10,17 +10,25 @@ let w = 10;
 let grid = [];
 let cols, rows;
 let isDragging = false;
+let mouseX = 0;
+let mouseY = 0;
+
+const createGrid = (cols, rows) => {
+  let g = [];
+  for (let i = 0; i < cols; i++) {
+    g[i] = [];
+    for (let j = 0; j < rows; j++) {
+      g[i][j] = 0;
+    }
+  }
+  return g;
+};
 
 const setup = () => {
   cols = Math.floor(canvasW / w);
   rows = Math.floor(canvasH / w);
 
-  for (let i = 0; i < cols; i++) {
-    grid[i] = [];
-    for (let j = 0; j < rows; j++) {
-      grid[i][j] = 0;
-    }
-  }
+  grid = createGrid(cols, rows);
 
   draw();
 };
@@ -39,16 +47,37 @@ const draw = () => {
       ctx.fillRect(i * w, j * w, w - 1, w - 1);
     }
   }
+
+  let nextGrid = createGrid(cols, rows);
+
+  for (let j = rows - 1; j >= 0; j--) {
+    for (let i = 0; i < cols; i++) {
+      let state = grid[i][j];
+      if (state > 0) {
+        if (j + 1 < rows && grid[i][j + 1] === 0) {
+          nextGrid[i][j + 1] = 1;
+        } else if (j + 1 < rows && i + 1 < cols && grid[i + 1][j + 1] === 0) {
+          nextGrid[i + 1][j + 1] = 1;
+        } else if (j + 1 < rows && i - 1 >= 0 && grid[i - 1][j + 1] === 0) {
+          nextGrid[i - 1][j + 1] = 1;
+        } else {
+          nextGrid[i][j] = 1;
+        }
+      }
+    }
+  }
+
+  grid = nextGrid;
 };
 
 canvas.addEventListener("mousedown", (event) => {
   isDragging = true;
-  updateCell(event);
+  updateMousePosition(event);
 });
 
 canvas.addEventListener("mousemove", (event) => {
   if (isDragging) {
-    updateCell(event);
+    updateMousePosition(event);
   }
 });
 
@@ -60,22 +89,28 @@ canvas.addEventListener("mouseleave", () => {
   isDragging = false;
 });
 
-const updateCell = (event) => {
-  let col = Math.floor(event.offsetX / w);
-  let row = Math.floor(event.offsetY / w);
+const updateMousePosition = (event) => {
+  mouseX = event.offsetX;
+  mouseY = event.offsetY;
+};
+
+const updateCell = () => {
+  let col = Math.floor(mouseX / w);
+  let row = Math.floor(mouseY / w);
 
   if (col >= 0 && col < cols && row >= 0 && row < rows) {
-    if (grid[col][row] === 0) {
-      grid[col][row] = 1;
-      ctx.fillStyle = "black";
-      ctx.fillRect(col * w, row * w, w - 1, w - 1);
-    }
+    grid[col][row] = 1;
   }
 };
 
 const animationLoop = () => {
+  if (isDragging) {
+    updateCell();
+  }
   draw();
-  requestAnimationFrame(animationLoop);
+  setTimeout(() => {
+    requestAnimationFrame(animationLoop);
+  }, 40);
 };
 
 setup();
