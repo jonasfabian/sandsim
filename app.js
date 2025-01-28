@@ -1,117 +1,94 @@
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+import { Grid } from './Grid.js';
+import { Canvas } from './Canvas.js';
 
-let canvasW = 400;
-let canvasH = 400;
-canvas.width = canvasW;
-canvas.height = canvasH;
-
-let w = 10;
-let grid = [];
-let cols, rows;
-let isDragging = false;
-let mouseX = 0;
-let mouseY = 0;
-
-const createGrid = (cols, rows) => {
-  let g = [];
-  for (let i = 0; i < cols; i++) {
-    g[i] = [];
-    for (let j = 0; j < rows; j++) {
-      g[i][j] = 0;
-    }
-  }
-  return g;
-};
+let grid;
+let canvas;
+let dragging = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
 
 const setup = () => {
-  cols = Math.floor(canvasW / w);
-  rows = Math.floor(canvasH / w);
+  canvas = new Canvas("canvas", 400, 400);
+  grid = new Grid(100, 100);
 
-  grid = createGrid(cols, rows);
+  canvas.canvas.addEventListener("mousedown", onMouseDown);
+  canvas.canvas.addEventListener("mousemove", onMouseMove);
+  canvas.canvas.addEventListener("mouseup", onMouseUp);
 
-  draw();
+  requestAnimationFrame(eventLoop);
 };
 
-const draw = () => {
-  ctx.fillStyle = "gray";
-  ctx.fillRect(0, 0, canvasW, canvasH);
+const drawGrid = () => {
+  const cellWidth = canvas.width / grid.width;
+  const cellHeight = canvas.height / grid.height;
 
-  for (let i = 0; i < cols; i++) {
-    for (let j = 0; j < rows; j++) {
-      if (grid[i][j] === 1) {
-        ctx.fillStyle = "black";
-      } else {
-        ctx.fillStyle = "white";
+  canvas.clear();
+
+  for (let i = 0; i < grid.width; i++) {
+    for (let j = 0; j < grid.height; j++) {
+      const cell = grid.get(i, j);
+      if (cell !== 0) {
+        canvas.drawRect(i * cellWidth, j * cellHeight, cellWidth, cellHeight, "blue");
       }
-      ctx.fillRect(i * w, j * w, w - 1, w - 1);
     }
   }
+};
 
-  let nextGrid = createGrid(cols, rows);
+const update = () => {
+  
+  if (dragging) {
+    grid.set(lastMouseX, lastMouseY, 1);
+    grid.set(lastMouseX - 1, lastMouseY, 1);
+    grid.set(lastMouseX + 1, lastMouseY, 1);
+    grid.set(lastMouseX, lastMouseY + 1, 1);
+    grid.set(lastMouseX, lastMouseY - 1, 1);
+  }
 
-  for (let j = rows - 1; j >= 0; j--) {
-    for (let i = 0; i < cols; i++) {
-      let state = grid[i][j];
-      if (state > 0) {
-        if (j + 1 < rows && grid[i][j + 1] === 0) {
-          nextGrid[i][j + 1] = 1;
-        } else if (j + 1 < rows && i + 1 < cols && grid[i + 1][j + 1] === 0) {
-          nextGrid[i + 1][j + 1] = 1;
-        } else if (j + 1 < rows && i - 1 >= 0 && grid[i - 1][j + 1] === 0) {
-          nextGrid[i - 1][j + 1] = 1;
-        } else {
-          nextGrid[i][j] = 1;
+  for (let i = 0; i < grid.width; i++) {
+    for (let j = grid.height - 1; j >= 0; j--) {
+      const current = grid.get(i, j);
+
+      if (current > 0) {
+        const below      = j < grid.height - 1 ? { x: i, y: j + 1 } : null;
+        const belowLeft  = (i > 0 && j < grid.height - 1) ? { x: i - 1, y: j + 1 } : null;
+        const belowRight = (i < grid.width - 1 && j < grid.height - 1) ? { x: i + 1, y: j + 1 } : null;
+
+        if (below && grid.isEmpty(below.x, below.y)) {
+          grid.swap({ x: i, y: j }, below);
+        } else if (belowLeft && grid.isEmpty(belowLeft.x, belowLeft.y)) {
+          grid.swap({ x: i, y: j }, belowLeft);
+        } else if (belowRight && grid.isEmpty(belowRight.x, belowRight.y)) {
+          grid.swap({ x: i, y: j }, belowRight);
         }
       }
     }
   }
-
-  grid = nextGrid;
 };
 
-canvas.addEventListener("mousedown", (event) => {
-  isDragging = true;
+const onMouseDown = (event) => {
+  dragging = true;
   updateMousePosition(event);
-});
+};
 
-canvas.addEventListener("mousemove", (event) => {
-  if (isDragging) {
+const onMouseMove = (event) => {
+  if (dragging) {
     updateMousePosition(event);
   }
-});
-
-canvas.addEventListener("mouseup", () => {
-  isDragging = false;
-});
-
-canvas.addEventListener("mouseleave", () => {
-  isDragging = false;
-});
-
-const updateMousePosition = (event) => {
-  mouseX = event.offsetX;
-  mouseY = event.offsetY;
 };
 
-const updateCell = () => {
-  let col = Math.floor(mouseX / w);
-  let row = Math.floor(mouseY / w);
-
-  if (col >= 0 && col < cols && row >= 0 && row < rows) {
-    grid[col][row] = 1;
-  }
+const onMouseUp = () => {
+  dragging = false;
 };
 
-const animationLoop = () => {
-  if (isDragging) {
-    updateCell();
-  }
-  draw();
-  setTimeout(() => {
-    requestAnimationFrame(animationLoop);
-  }, 40);
+function updateMousePosition(event) {
+  lastMouseX = Math.floor((event.offsetX / canvas.width) * grid.width);
+  lastMouseY = Math.floor((event.offsetY / canvas.height) * grid.height);
+}
+
+const eventLoop = () => {
+  drawGrid();
+  update();
+  requestAnimationFrame(eventLoop);
 };
 
 setup();
-animationLoop();
