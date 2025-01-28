@@ -1,6 +1,6 @@
 # sandsim
 Fun sand simulator in JS.
 
-![Sand Animation](assets/sand.gif)
+![Sand Animation](src/assets/sand.gif)
 
 Inspired by https://jason.today/falling-sand
