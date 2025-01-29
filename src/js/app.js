@@ -43,48 +43,95 @@ const drawGrid = () => {
 
 const update = () => {
   if (dragging) {
-    const positions = [
-      { x: lastMouseX,     y: lastMouseY },
-      { x: lastMouseX - 1, y: lastMouseY },
-      { x: lastMouseX + 1, y: lastMouseY },
-      { x: lastMouseX,     y: lastMouseY - 1 },
-      { x: lastMouseX,     y: lastMouseY + 1 },
-      { x: lastMouseX + 1, y: lastMouseY + 1 },
-      { x: lastMouseX - 1, y: lastMouseY + 1 },
-      { x: lastMouseX + 1, y: lastMouseY - 1 },
-      { x: lastMouseX - 1, y: lastMouseY - 1 }
-    ];
-
-    positions.forEach(({ x, y }) => {
-      if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return;
-
-      if (Math.random() < 0.5) {
-        let alpha = 0.5 + Math.random() * 0.5;
-        const color = `rgba(194, 178, 128, ${alpha})`;
-        grid.set(x, y, new Sand({ color }));
-      }
-    });
+    spawnSandAtMouse();
   }
-
-  for (let i = 0; i < grid.width; i++) {
-    for (let j = grid.height - 1; j >= 0; j--) {
-      const current = grid.get(i, j);
-      if (!current.empty) {
-        const below      = j < grid.height - 1 ? { x: i,     y: j + 1 } : null;
-        const belowLeft  = (i > 0 && j < grid.height - 1) ?  { x: i - 1, y: j + 1 } : null;
-        const belowRight = (i < grid.width - 1 && j < grid.height - 1) ? { x: i + 1, y: j + 1 } : null;
-
-        if (below && grid.isEmpty(below.x, below.y)) {
-          grid.swap({ x: i, y: j }, below);
-        } else if (belowLeft && grid.isEmpty(belowLeft.x, belowLeft.y)) {
-          grid.swap({ x: i, y: j }, belowLeft);
-        } else if (belowRight && grid.isEmpty(belowRight.x, belowRight.y)) {
-          grid.swap({ x: i, y: j }, belowRight);
-        }
+  for (let j = grid.height - 1; j >= 0; j--) {
+    const leftToRight = Math.random() > 0.5;
+    if (leftToRight) {
+      for (let i = 0; i < grid.width; i++) {
+        stepParticle(i, j);
+      }
+    } else {
+      for (let i = grid.width - 1; i >= 0; i--) {
+        stepParticle(i, j);
       }
     }
   }
 };
+
+function stepParticle(i, j) {
+  const particle = grid.get(i, j);
+  particle.update();
+
+  if (!particle.modified) {
+    return;
+  }
+
+  const steps = particle.getUpdateCount();
+  for (let count = 0; count < steps; count++) {
+    const { x: newX, y: newY } = updatePixel(i, j);
+    if (newX === i && newY === j) {
+      particle.resetVelocity();
+      break;
+    } else {
+      i = newX;
+      j = newY;
+    }
+  }
+}
+
+function updatePixel(i, j) {
+  const current = grid.get(i, j);
+  if (current.empty) {
+    return { x: i, y: j };
+  }
+
+  const below      = j < grid.height - 1 ? { x: i,     y: j + 1 } : null;
+  const belowLeft  = (i > 0 && j < grid.height - 1) ?  { x: i - 1, y: j + 1 } : null;
+  const belowRight = (i < grid.width - 1 && j < grid.height - 1) ? { x: i + 1, y: j + 1 } : null;
+
+  if (below && grid.isEmpty(below.x, below.y)) {
+    grid.swap({ x: i, y: j }, below);
+    return below;
+  }
+
+  if (belowLeft && grid.isEmpty(belowLeft.x, belowLeft.y)) {
+    grid.swap({ x: i, y: j }, belowLeft);
+    return belowLeft;
+  }
+
+  if (belowRight && grid.isEmpty(belowRight.x, belowRight.y)) {
+    grid.swap({ x: i, y: j }, belowRight);
+    return belowRight;
+  }
+
+  return { x: i, y: j };
+}
+
+function spawnSandAtMouse() {
+  const positions = [
+    { x: lastMouseX,     y: lastMouseY },
+    { x: lastMouseX - 1, y: lastMouseY },
+    { x: lastMouseX + 1, y: lastMouseY },
+    { x: lastMouseX,     y: lastMouseY - 1 },
+    { x: lastMouseX,     y: lastMouseY + 1 },
+    { x: lastMouseX + 1, y: lastMouseY + 1 },
+    { x: lastMouseX - 1, y: lastMouseY + 1 },
+    { x: lastMouseX + 1, y: lastMouseY - 1 },
+    { x: lastMouseX - 1, y: lastMouseY - 1 }
+  ];
+
+  positions.forEach(({ x, y }) => {
+    if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) {
+      return;
+    }
+    if (Math.random() < 0.5) {
+      let alpha = 0.5 + Math.random() * 0.5;
+      const color = `rgba(194, 178, 128, ${alpha})`;
+      grid.set(x, y, new Sand({ color }));
+    }
+  });
+}
 
 const onMouseDown = (event) => {
   dragging = true;
@@ -106,10 +153,10 @@ function updateMousePosition(event) {
   lastMouseY = Math.floor((event.offsetY / canvas.height) * grid.height);
 }
 
-const eventLoop = () => {
+function eventLoop() {
   drawGrid();
   update();
   requestAnimationFrame(eventLoop);
-};
+}
 
 setup();
