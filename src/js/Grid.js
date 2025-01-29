@@ -1,18 +1,22 @@
+import {Empty} from "./Empty.js";
+
 export class Grid {
     constructor(width, height) {
         this.width = width;
         this.height = height;
-        this.cells = Array.from({ length: height }, () => Array(width).fill(0));
+        this.cells = Array.from({ length: height }, () => {
+            return Array(width).fill(new Empty());
+        });
     }
 
     clear() {
         for (let y = 0; y < this.height; y++) {
-            this.cells[y].fill(0);
+            this.cells[y].fill(new Empty());
         }
     }
 
-    set(x, y, color) {
-        this.cells[y][x] = color;
+    set(x, y, particle) {
+        this.cells[y][x] = particle;
     }
 
     swap(a, b) {
@@ -22,7 +26,7 @@ export class Grid {
     }
 
     isEmpty(x, y) {
-        return this.cells[y][x] === 0;
+        return this.cells[y][x].empty;
     }
 
     // array like behavior (forEach, map, ...)
@@ -40,5 +44,5 @@ export class Grid {
 
     get(x, y) {
         return this.cells[y][x];
-    }
+    }  
 }
