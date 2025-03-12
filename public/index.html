@@ -5,13 +5,833 @@
   <meta charset="UTF-8" />
   <title>SandSim</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="" />
-  <link rel="stylesheet" type="text/css" href="../src/styles/style.css" />
+  <meta name="description" content="Sand and water physics simulation" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      overflow-x: hidden;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    canvas {
+      display: block;
+      touch-action: none;
+    }
+
+    * {
+      max-width: 100%;
+    }
+
+    .tool-btn.active {
+      background: linear-gradient(135deg, #4f46e5 0%, #7e3af2 100%);
+      box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .tool-btn {
+      transition: all 0.2s ease;
+    }
+
+    .tool-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .tool-icon {
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .active .tool-icon {
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .glass-panel {
+      backdrop-filter: blur(10px);
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 5px;
+      background-image: linear-gradient(to right, #4f46e5, #7e3af2);
+      background-size: 30% 100%;
+      background-repeat: no-repeat;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      -webkit-appearance: none;
+      box-shadow: none;
+      border: none;
+      background: transparent;
+    }
+
+    .canvas-container {
+      position: relative;
+    }
+
+    .canvas-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(79, 70, 229, 0.2);
+      pointer-events: none;
+      z-index: 1;
+      background: transparent;
+    }
+
+    .tooltip {
+      visibility: hidden;
+      position: absolute;
+      background: rgba(15, 23, 42, 0.9);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.3s;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 10px;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.3);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(79, 70, 229, 0.5);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(79, 70, 229, 0.7);
+    }
+
+    .tool-btn:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .animated-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+    }
+
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
 </head>
 
-<body>
-  <canvas id="canvas"></canvas>
-  <script type="module" src="../src/js/core/app.js"></script>
+<body class="animated-bg text-white">
+  <div class="flex flex-col h-screen">
+    <header class="bg-slate-800 bg-opacity-70 backdrop-blur-lg p-4 border-b border-slate-700">
+      <div class="flex justify-between items-center w-full">
+        <div class="flex items-center space-x-2">
+          <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-yellow-600">
+            SandSim
+          </h1>
+          <span class="text-xs bg-indigo-600 px-2 py-1 rounded-full uppercase font-medium tracking-wider">Beta</span>
+        </div>
+        <div class="flex space-x-3">
+          <button id="pause-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-colors duration-200 shadow-lg border border-slate-600 flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m-9-9h14" />
+            </svg>
+            <span>Pause</span>
+          </button>
+          <button id="clear-btn" class="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-lg text-sm font-medium transition-colors duration-200 shadow-lg flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>Clear All</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex flex-1 overflow-hidden">
+      <div class="glass-panel p-5 flex flex-col space-y-5 shadow-2xl border-r border-slate-700 z-10 min-w-[110px] max-h-full overflow-hidden">
+        <div class="text-center pb-3 border-b border-slate-700">
+          <h2 class="font-medium text-lg bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Elements</h2>
+        </div>
+        
+        <div class="flex flex-col space-y-5 overflow-y-auto overflow-x-hidden pr-2 pb-2 scrollable-container" style="max-height: calc(100vh - 250px);">
+          <button id="sand-tool" class="tool-btn active relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2 flex items-center justify-center" style="background-color: rgba(194, 178, 128, 0.8);"></div>
+            <span class="text-xs font-medium">Sand</span>
+            <div class="tooltip">Creates sand particles that fall and pile up</div>
+          </button>
+          
+          <button id="water-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(64, 164, 223, 0.8);"></div>
+            <span class="text-xs font-medium">Water</span>
+            <div class="tooltip">Creates flowing water that spreads horizontally</div>
+          </button>
+          
+          <button id="oil-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(101, 67, 33, 0.8);"></div>
+            <span class="text-xs font-medium">Oil</span>
+            <div class="tooltip">Creates oil that floats on water and is flammable</div>
+          </button>
+          
+          <button id="fire-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(255, 165, 0, 0.8);"></div>
+            <span class="text-xs font-medium">Fire</span>
+            <div class="tooltip">Creates fire that rises and ignites flammable materials</div>
+          </button>
+          
+          <button id="gunpowder-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(40, 40, 40, 0.9);"></div>
+            <span class="text-xs font-medium">Powder</span>
+            <div class="tooltip">Creates explosive gunpowder</div>
+          </button>
+          
+          <button id="acid-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(80, 255, 70, 0.8);"></div>
+            <span class="text-xs font-medium">Acid</span>
+            <div class="tooltip">Creates corrosive acid that dissolves materials</div>
+          </button>
+          
+          <button id="concrete-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(180, 180, 180, 0.95);"></div>
+            <span class="text-xs font-medium">Concrete</span>
+            <div class="tooltip">Creates solid concrete barriers</div>
+          </button>
+          
+          <button id="lava-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(255, 150, 40, 0.9);"></div>
+            <span class="text-xs font-medium">Lava</span>
+            <div class="tooltip">Creates hot lava that solidifies over time</div>
+          </button>
+          
+          <button id="seed-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(40, 180, 20, 0.9);"></div>
+            <span class="text-xs font-medium">Seed</span>
+            <div class="tooltip">Creates seeds that grow into plants</div>
+          </button>
+          
+          <button id="ice-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2" style="background-color: rgba(200, 220, 255, 0.7);"></div>
+            <span class="text-xs font-medium">Ice</span>
+            <div class="tooltip">Creates ice that melts when heated</div>
+          </button>
+          
+          <button id="eraser-tool" class="tool-btn relative flex flex-col items-center p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all shadow-lg border border-slate-700">
+            <div class="tool-icon w-10 h-10 rounded-full mb-2 flex items-center justify-center bg-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <span class="text-xs font-medium">Eraser</span>
+            <div class="tooltip">Removes elements from the canvas</div>
+          </button>
+        </div>
+        
+        <div class="pt-4 border-t border-slate-700 space-y-3">
+          <div class="flex justify-between items-center">
+            <div class="text-xs font-medium text-indigo-300">Brush Size</div>
+            <div class="text-xs bg-slate-700 px-2 py-1 rounded-md font-mono" id="brush-size-display">3</div>
+          </div>
+          <input id="brush-size" type="range" min="1" max="10" value="3" class="w-full">
+        </div>
+      </div>
+
+      <div id="canvas-container" class="flex-1 flex items-center justify-center relative">
+        <div class="absolute top-4 right-4 glass-panel px-3 py-2 rounded-lg text-xs z-10 flex items-center space-x-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span id="fps-counter" class="font-mono">60 FPS</span>
+        </div>
+        <div class="canvas-container rounded-xl border-2 border-slate-600 overflow-hidden shadow-2xl transform transition-transform duration-300">
+          <div class="canvas-glow"></div>
+          <canvas id="canvas"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <footer class="bg-slate-800 bg-opacity-70 backdrop-blur-lg p-3 text-center border-t border-slate-700">
+      <div class="flex justify-center items-center space-x-4 text-xs text-slate-400">
+        <div class="flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+          </svg>
+          <span>Click and drag to place elements</span>
+        </div>
+        <div class="flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+          </svg>
+          <span>Scroll to adjust brush size</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module">
+    import { Grid } from '../src/js/core/Grid.js';
+    import { Canvas } from '../src/js/core/Canvas.js';
+    import { SimulationLoop } from '../src/js/core/SimulationLoop.js';
+    import { SandTool } from '../src/js/tools/SandTool.js';
+    import { WaterTool } from '../src/js/tools/WaterTool.js';
+    import { OilTool } from '../src/js/tools/OilTool.js';
+    import { FireTool } from '../src/js/tools/FireTool.js';
+    import { GunpowderTool } from '../src/js/tools/GunpowderTool.js';
+    import { AcidTool } from '../src/js/tools/AcidTool.js';
+    import { ConcreteTool } from '../src/js/tools/ConcreteTool.js';
+    import { LavaTool } from '../src/js/tools/LavaTool.js';
+    import { SeedTool } from '../src/js/tools/SeedTool.js';
+    import { IceTool } from '../src/js/tools/IceTool.js';
+    import { Empty } from '../src/js/particles/Empty.js';
+    import { ParticleFactory } from '../src/js/particles/ParticleFactory.js';
+
+    class EraserTool {
+      constructor() {
+        this.dragging = false;
+        this.size = 3;
+      }
+
+      onMouseDown(grid, x, y) {
+        this.dragging = true;
+        this.erase(grid, x, y);
+      }
+
+      onMouseMove(grid, x, y) {
+        if (this.dragging) {
+          this.erase(grid, x, y);
+        }
+      }
+
+      onMouseUp(grid, x, y) {
+        this.dragging = false;
+      }
+
+      erase(grid, x, y) {
+        const size = this.size;
+        for (let i = -size; i <= size; i++) {
+          for (let j = -size; j <= size; j++) {
+            const tx = x + i;
+            const ty = y + j;
+            if (
+              tx >= 0 && tx < grid.width &&
+              ty >= 0 && ty < grid.height
+            ) {
+              grid.set(tx, ty, new Empty());
+            }
+          }
+        }
+      }
+    }
+
+    let grid;
+    let canvas;
+    let simulationLoop;
+    let fps = 0;
+    let frameCount = 0;
+    let lastTime = performance.now();
+    let isPaused = false;
+    let isMouseDown = false;
+
+    const sandTool = new SandTool();
+    const waterTool = new WaterTool();
+    const oilTool = new OilTool();
+    const fireTool = new FireTool();
+    const gunpowderTool = new GunpowderTool();
+    const acidTool = new AcidTool();
+    const concreteTool = new ConcreteTool();
+    const lavaTool = new LavaTool();
+    const seedTool = new SeedTool();
+    const iceTool = new IceTool();
+    const eraserTool = new EraserTool();
+    
+    let activeTool = sandTool;
+    
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    
+    const brushSizeInput = document.getElementById('brush-size');
+    const brushSizeDisplay = document.getElementById('brush-size-display');
+    const sandBtn = document.getElementById('sand-tool');
+    const waterBtn = document.getElementById('water-tool');
+    const oilBtn = document.getElementById('oil-tool');
+    const fireBtn = document.getElementById('fire-tool');
+    const gunpowderBtn = document.getElementById('gunpowder-tool');
+    const acidBtn = document.getElementById('acid-tool');
+    const concreteBtn = document.getElementById('concrete-tool');
+    const lavaBtn = document.getElementById('lava-tool');
+    const seedBtn = document.getElementById('seed-tool');
+    const iceBtn = document.getElementById('ice-tool');
+    const eraserBtn = document.getElementById('eraser-tool');
+    const pauseBtn = document.getElementById('pause-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const fpsCounter = document.getElementById('fps-counter');
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const canvasContainer = document.getElementById('canvas-container');
+      const containerRect = canvasContainer.getBoundingClientRect();
+      
+      canvas = new Canvas("canvas", containerRect.width - 40, containerRect.height - 40);
+      
+      const cellSize = 4;
+      const gridWidth = Math.floor((containerRect.width - 40) / cellSize);
+      const gridHeight = Math.floor((containerRect.height - 40) / cellSize);
+      grid = new Grid(gridWidth, gridHeight);
+      
+      let resizeTimeout;
+      window.addEventListener("resize", () => {
+        const canvasContainer = document.getElementById('canvas-container');
+        const containerRect = canvasContainer.getBoundingClientRect();
+        canvas.width = containerRect.width - 40;
+        canvas.height = containerRect.height - 40;
+        canvas.canvas.width = containerRect.width - 40;
+        canvas.canvas.height = containerRect.height - 40;
+        
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(handleResize, 200);
+      });
+        
+      canvas.canvas.addEventListener("mousedown", onMouseDown);
+      canvas.canvas.addEventListener("mousemove", onMouseMove);
+      canvas.canvas.addEventListener("mouseup", onMouseUp);
+      canvas.canvas.addEventListener("wheel", onWheel);
+      canvas.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+      
+      sandBtn.addEventListener("click", () => setActiveTool(sandTool, sandBtn));
+      waterBtn.addEventListener("click", () => setActiveTool(waterTool, waterBtn));
+      oilBtn.addEventListener("click", () => setActiveTool(oilTool, oilBtn));
+      fireBtn.addEventListener("click", () => setActiveTool(fireTool, fireBtn));
+      gunpowderBtn.addEventListener("click", () => setActiveTool(gunpowderTool, gunpowderBtn));
+      acidBtn.addEventListener("click", () => setActiveTool(acidTool, acidBtn));
+      concreteBtn.addEventListener("click", () => setActiveTool(concreteTool, concreteBtn));
+      lavaBtn.addEventListener("click", () => setActiveTool(lavaTool, lavaBtn));
+      seedBtn.addEventListener("click", () => setActiveTool(seedTool, seedBtn));
+      iceBtn.addEventListener("click", () => setActiveTool(iceTool, iceBtn));
+      eraserBtn.addEventListener("click", () => setActiveTool(eraserTool, eraserBtn));
+      
+      brushSizeInput.addEventListener("input", () => {
+        const size = parseInt(brushSizeInput.value);
+        brushSizeDisplay.textContent = size;
+        sandTool.spawnSize = size;
+        waterTool.spawnSize = size;
+        oilTool.spawnSize = size;
+        fireTool.spawnSize = size;
+        gunpowderTool.spawnSize = size;
+        acidTool.spawnSize = size;
+        concreteTool.spawnSize = size;
+        lavaTool.spawnSize = size;
+        seedTool.spawnSize = size;
+        iceTool.spawnSize = size;
+        eraserTool.size = size;
+        
+        const percent = ((size - 1) / 9) * 100;
+        brushSizeInput.style.backgroundSize = `${percent}% 100%`;
+      });
+      
+      pauseBtn.addEventListener("click", togglePause);
+      clearBtn.addEventListener("click", clearGrid);
+      
+      sandTool.spawnSize = 3;
+      waterTool.spawnSize = 3;
+      oilTool.spawnSize = 3;
+      fireTool.spawnSize = 3;
+      gunpowderTool.spawnSize = 3;
+      acidTool.spawnSize = 3;
+      concreteTool.spawnSize = 3;
+      lavaTool.spawnSize = 3;
+      seedTool.spawnSize = 3;
+      iceTool.spawnSize = 3;
+      
+      brushSizeDisplay.textContent = brushSizeInput.value;
+      const percent = ((parseInt(brushSizeInput.value) - 1) / 9) * 100;
+      brushSizeInput.style.backgroundSize = `${percent}% 100%`;
+      
+      sandTool.spawnSand = function(grid, x, y) {
+        const size = this.spawnSize;
+        for (let i = -size; i <= size; i++) {
+          for (let j = -size; j <= size; j++) {
+            const tx = x + i;
+            const ty = y + j;
+            if (
+              tx >= 0 && tx < grid.width &&
+              ty >= 0 && ty < grid.height &&
+              Math.random() < 0.5
+            ) {
+              grid.set(tx, ty, ParticleFactory.createSand());
+            }
+          }
+        }
+      };
+      
+      waterTool.spawnWater = function(grid, x, y) {
+        const size = this.spawnSize;
+        for (let i = -size; i <= size; i++) {
+          for (let j = -size; j <= size; j++) {
+            const tx = x + i;
+            const ty = y + j;
+            if (
+              tx >= 0 && tx < grid.width &&
+              ty >= 0 && ty < grid.height &&
+              Math.random() < 0.5
+            ) {
+              grid.set(tx, ty, ParticleFactory.createWater());
+            }
+          }
+        }
+      };
+      
+      simulationLoop = new SimulationLoop(update, draw);
+      simulationLoop.start();
+      
+      const canvasContainerElement = document.querySelector('.canvas-container');
+      canvasContainerElement.addEventListener('mousedown', () => {
+        canvasContainerElement.style.transform = 'scale(0.995)';
+      });
+      document.addEventListener('mouseup', () => {
+        canvasContainerElement.style.transform = 'scale(1)';
+      });
+    });
+
+    function setActiveTool(tool, button) {
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      button.classList.add('active');
+      
+      activeTool = tool;
+      
+      button.style.transform = 'scale(1.05)';
+      setTimeout(() => {
+        button.style.transform = '';
+      }, 200);
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      
+      if (isPaused) {
+        pauseBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Resume</span>
+        `;
+        pauseBtn.classList.add('bg-gradient-to-r', 'from-green-600', 'to-green-700');
+        pauseBtn.classList.remove('bg-slate-700');
+      } else {
+        pauseBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m-9-9h14" />
+          </svg>
+          <span>Pause</span>
+        `;
+        pauseBtn.classList.remove('bg-gradient-to-r', 'from-green-600', 'to-green-700');
+        pauseBtn.classList.add('bg-slate-700');
+      }
+    }
+
+    function clearGrid() {
+      const canvasContainer = document.querySelector('.canvas-container');
+      canvasContainer.style.boxShadow = '0 0 30px rgba(220, 38, 38, 0.5)';
+      
+      setTimeout(() => {
+        canvasContainer.style.boxShadow = '';
+      }, 300);
+      
+      for (let j = 0; j < grid.height; j++) {
+        for (let i = 0; i < grid.width; i++) {
+          grid.set(i, j, new Empty());
+        }
+      }
+    }
+
+    function onMouseDown(e) {
+      updateMousePosition(e);
+      isMouseDown = true;
+      activeTool.onMouseDown(grid, lastMouseX, lastMouseY);
+    }
+
+    function onMouseMove(e) {
+      updateMousePosition(e);
+      if (e.buttons === 1) {
+        activeTool.onMouseMove(grid, lastMouseX, lastMouseY);
+      }
+    }
+
+    function onMouseUp(e) {
+      updateMousePosition(e);
+      isMouseDown = false;
+      activeTool.onMouseUp(grid, lastMouseX, lastMouseY);
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      let size = parseInt(brushSizeInput.value);
+      
+      if (e.deltaY < 0) {
+        size = Math.min(10, size + 1);
+      } else {
+        size = Math.max(1, size - 1);
+      }
+      
+      brushSizeInput.value = size;
+      brushSizeDisplay.textContent = size;
+      
+      const percent = ((size - 1) / 9) * 100;
+      brushSizeInput.style.backgroundSize = `${percent}% 100%`;
+      
+      sandTool.spawnSize = size;
+      waterTool.spawnSize = size;
+      oilTool.spawnSize = size;
+      fireTool.spawnSize = size;
+      gunpowderTool.spawnSize = size;
+      acidTool.spawnSize = size;
+      concreteTool.spawnSize = size;
+      lavaTool.spawnSize = size;
+      seedTool.spawnSize = size;
+      iceTool.spawnSize = size;
+      eraserTool.size = size;
+    }
+
+    function updateMousePosition(e) {
+      const rect = canvas.canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      lastMouseX = Math.floor((mouseX / canvas.width) * grid.width);
+      lastMouseY = Math.floor((mouseY / canvas.height) * grid.height);
+    }
+
+    function update() {
+      if (isPaused) return;
+      
+      if (isMouseDown) {
+        if (activeTool === sandTool) {
+          sandTool.spawnSand(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === waterTool) {
+          waterTool.spawnWater(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === oilTool) {
+          oilTool.spawnOil(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === fireTool) {
+          fireTool.spawnFire(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === gunpowderTool) {
+          gunpowderTool.spawnGunpowder(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === acidTool) {
+          acidTool.spawnAcid(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === concreteTool) {
+          concreteTool.spawnConcrete(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === lavaTool) {
+          lavaTool.spawnLava(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === seedTool) {
+          seedTool.spawnSeed(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === iceTool) {
+          iceTool.spawnIce(grid, lastMouseX, lastMouseY);
+        } else if (activeTool === eraserTool) {
+          eraserTool.erase(grid, lastMouseX, lastMouseY);
+        }
+      }
+      
+      for (let j = grid.height - 1; j >= 0; j--) {
+        const leftToRight = Math.random() > 0.5;
+        if (leftToRight) {
+          for (let i = 0; i < grid.width; i++) {
+            stepParticle(i, j);
+          }
+        } else {
+          for (let i = grid.width - 1; i >= 0; i--) {
+            stepParticle(i, j);
+          }
+        }
+      }
+      
+      frameCount++;
+      const now = performance.now();
+      const elapsed = now - lastTime;
+      
+      if (elapsed >= 1000) {
+        fps = Math.round((frameCount * 1000) / elapsed);
+        frameCount = 0;
+        lastTime = now;
+        fpsCounter.textContent = `${fps} FPS`;
+        
+        if (fps >= 55) {
+          fpsCounter.className = 'font-mono text-green-400';
+        } else if (fps >= 30) {
+          fpsCounter.className = 'font-mono text-yellow-400';
+        } else {
+          fpsCounter.className = 'font-mono text-red-400';
+        }
+      }
+    }
+
+    function stepParticle(i, j) {
+      const particle = grid.get(i, j);
+      particle.update();
+
+      if (particle.lifespan !== undefined && particle.lifespan <= 0) {
+        grid.set(i, j, new Empty());
+        return;
+      }
+      
+      if (particle.constructor.name === 'Acid' && particle.potency <= 0) {
+        grid.set(i, j, new Empty());
+        return;
+      }
+      
+      if (particle.constructor.name === 'Concrete' && particle.eroded) {
+        grid.set(i, j, new Empty());
+        return;
+      }
+      
+      if (particle.constructor.name === 'Lava' && particle.solidified) {
+        grid.set(i, j, ParticleFactory.createStone());
+        return;
+      }
+      
+      if (particle.constructor.name === 'Ice' && particle.melting && particle.temperature > 0) {
+        grid.set(i, j, ParticleFactory.createWater());
+        return;
+      }
+      
+      if (particle.constructor.name === 'Seed' && particle.readyToTransform) {
+        grid.set(i, j, ParticleFactory.createPlant());
+        return;
+      }
+      
+      if (particle.constructor.name === 'Plant' && particle.health <= 0) {
+        grid.set(i, j, new Empty());
+        return;
+      }
+
+      if (!particle.modified) return;
+
+      if (particle.constructor.name === 'Seed' || particle.constructor.name === 'Plant') {
+        particle.tryMove(grid, i, j);
+      }
+
+      const steps = particle.getUpdateCount();
+
+      for (let count = 0; count < steps; count++) {
+        const { x: newX, y: newY } = particle.tryMove(grid, i, j);
+        if (newX === i && newY === j) {
+          particle.resetVelocity();
+          break;
+        } else {
+          grid.swap({ x: i, y: j }, { x: newX, y: newY });
+          i = newX;
+          j = newY;
+        }
+      }
+    }
+
+    function handleResize() {
+      const canvasContainer = document.getElementById('canvas-container');
+      const containerRect = canvasContainer.getBoundingClientRect();
+      
+      const cellSize = 4;
+      const newGridWidth = Math.floor((containerRect.width - 40) / cellSize);
+      const newGridHeight = Math.floor((containerRect.height - 40) / cellSize);
+      
+      if (Math.abs(newGridWidth - grid.width) > 5 || Math.abs(newGridHeight - grid.height) > 5) {
+        const wasPaused = isPaused;
+        isPaused = true;
+        
+        resizeGrid(newGridWidth, newGridHeight);
+        
+        if (!wasPaused) {
+          setTimeout(() => {
+            isPaused = false;
+          }, 100);
+        }
+      }
+    }
+    
+    function resizeGrid(newWidth, newHeight) {
+      const oldGrid = grid;
+      const oldWidth = oldGrid.width;
+      const oldHeight = oldGrid.height;
+      
+      grid = new Grid(newWidth, newHeight);
+      
+      const scaleX = newWidth / oldWidth;
+      const scaleY = newHeight / oldHeight;
+      
+      for (let j = 0; j < oldHeight; j++) {
+        for (let i = 0; i < oldWidth; i++) {
+          const particle = oldGrid.get(i, j);
+          
+          if (particle.empty) continue;
+          
+          const newX = Math.floor(i * scaleX);
+          const newY = Math.floor(j * scaleY);
+          
+          if (newX >= 0 && newX < newWidth && newY >= 0 && newY < newHeight) {
+            grid.set(newX, newY, particle);
+          }
+        }
+      }
+    }
+
+    function draw() {
+      const cellW = canvas.width / grid.width;
+      const cellH = canvas.height / grid.height;
+
+      canvas.clear();
+
+      for (let i = 0; i < grid.width; i++) {
+        for (let j = 0; j < grid.height; j++) {
+          const cell = grid.get(i, j);
+          if (!cell.empty) {
+            canvas.drawRect(
+              i * cellW,
+              j * cellH,
+              cellW,
+              cellH,
+              cell.color
+            );
+          }
+        }
+      }
+    }
+  </script>
 </body>
 
 </html>
